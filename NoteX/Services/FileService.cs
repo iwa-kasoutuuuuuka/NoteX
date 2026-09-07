@@ -15,6 +15,8 @@ public class FileService
         PropertyNameCaseInsensitive = true
     };
 
+    private const long MaxAllowedFileSize = 50 * 1024 * 1024; // 50MB
+
     public NoteXDocument LoadDocument(string filePath)
     {
         if (!File.Exists(filePath))
@@ -22,21 +24,41 @@ public class FileService
             throw new FileNotFoundException($"ファイルが見つかりません: {filePath}");
         }
 
+        var fileInfo = new FileInfo(filePath);
+        if (fileInfo.Length > MaxAllowedFileSize)
+        {
+            throw new InvalidDataException($"ファイルサイズが大きすぎます ({fileInfo.Length / (1024 * 1024)}MB)。50MB以下のファイルを指定してください。");
+        }
+
+        if (fileInfo.Length == 0)
+        {
+            // 空ファイルの場合は安全にデフォルトドキュメントを生成
+            return NoteXDocument.CreateDefault(Path.GetFileNameWithoutExtension(filePath));
+        }
+
         string json = File.ReadAllText(filePath);
         var document = JsonSerializer.Deserialize<NoteXDocument>(json, JsonOptions);
 
         if (document == null)
         {
-            throw new InvalidDataException("ファイルの解析に失敗しました。");
+            throw new InvalidDataException("ファイルの解析に失敗しました。形式が正しいか確認してください。");
         }
 
+        // ページリストのnullチェック
+        document.Pages ??= new List<NoteXPage>();
+
         // ページが空の場合は最低1ページ作成
-        if (document.Pages == null || document.Pages.Count == 0)
+        if (document.Pages.Count == 0)
         {
-            document.Pages = new List<NoteXPage>
-            {
-                new NoteXPage { Title = "ページ 1", Content = string.Empty }
-            };
+            document.Pages.Add(new NoteXPage { Title = "ページ 1", Content = string.Empty });
+        }
+
+        // ページ内部のnullサニタイズ
+        foreach (var p in document.Pages)
+        {
+            p.Title = string.IsNullOrWhiteSpace(p.Title) ? "新規ページ" : p.Title;
+            p.Content ??= string.Empty;
+            p.Encoding = string.IsNullOrWhiteSpace(p.Encoding) ? "utf-8" : p.Encoding;
         }
 
         // ドキュメントタイトルが空の場合はファイル名から取得
@@ -67,17 +89,27 @@ public class FileService
 
         string json = JsonSerializer.Serialize(document, JsonOptions);
 
-        // 一時ファイルに書き出してから置換（安全なアトミック保存）
-        string tempFilePath = filePath + ".tmp";
-        File.WriteAllText(tempFilePath, json, System.Text.Encoding.UTF8);
+        // 安全なアトミック書き込み (一時ファイル作成 -> 置換 -> 失敗時クリーンアップ)
+        string tempFilePath = $"{filePath}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            File.WriteAllText(tempFilePath, json, System.Text.Encoding.UTF8);
 
-        if (File.Exists(filePath))
-        {
-            File.Replace(tempFilePath, filePath, null);
+            if (File.Exists(filePath))
+            {
+                File.Replace(tempFilePath, filePath, null);
+            }
+            else
+            {
+                File.Move(tempFilePath, filePath);
+            }
         }
-        else
+        finally
         {
-            File.Move(tempFilePath, filePath);
+            if (File.Exists(tempFilePath))
+            {
+                try { File.Delete(tempFilePath); } catch { }
+            }
         }
     }
 }

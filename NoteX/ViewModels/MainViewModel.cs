@@ -455,6 +455,19 @@ public class MainViewModel : ViewModelBase
         page ??= SelectedPage;
         if (page == null) return;
 
+        // 未保存の変更がある場合は確認
+        if (page.IsModified && !string.IsNullOrEmpty(page.Content))
+        {
+            var confirm = _dialogService.ShowConfirmation(
+                $"ページ '{page.Title}' には未保存の変更があります。\nこのページを閉じますか？ (変更内容は失われます)",
+                "NoteX - ページの確認"
+            );
+            if (confirm != ConfirmResult.Yes)
+            {
+                return;
+            }
+        }
+
         if (Pages.Count <= 1)
         {
             // 最後の1ページの場合は中身をクリアして初期化

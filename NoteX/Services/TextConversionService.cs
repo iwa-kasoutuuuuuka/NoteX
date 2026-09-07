@@ -45,6 +45,13 @@ public class TextConversionService
         }
     }
 
+    private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
+
     public static string SanitizeFileName(string rawName)
     {
         if (string.IsNullOrWhiteSpace(rawName))
@@ -54,12 +61,43 @@ public class TextConversionService
         var sb = new StringBuilder();
         foreach (var c in rawName)
         {
-            if (invalidChars.Contains(c))
+            if (invalidChars.Contains(c) || c == '/' || c == '\\')
                 sb.Append('_');
             else
                 sb.Append(c);
         }
-        var sanitized = sb.ToString().Trim();
+
+        var sanitized = sb.ToString();
+
+        // 連続ドット (..) の完全無害化
+        while (sanitized.Contains(".."))
+        {
+            sanitized = sanitized.Replace("..", "_");
+        }
+
+        sanitized = sanitized.Trim(' ', '.', '_');
+        if (string.IsNullOrEmpty(sanitized))
+            return "無題";
+
+        // Windows 予約デバイス名 (CON, PRN, AUX, NUL, COM1-9, LPT1-9) の防御
+        string nameWithoutExt = sanitized;
+        int dotIdx = sanitized.IndexOf('.');
+        if (dotIdx > 0)
+        {
+            nameWithoutExt = sanitized.Substring(0, dotIdx);
+        }
+
+        if (ReservedDeviceNames.Contains(nameWithoutExt))
+        {
+            sanitized = "_" + sanitized;
+        }
+
+        // ファイル名長制限 (Windows MAX_PATH考慮: 最大100文字に制限)
+        if (sanitized.Length > 100)
+        {
+            sanitized = sanitized.Substring(0, 100).TrimEnd(' ', '.');
+        }
+
         return string.IsNullOrEmpty(sanitized) ? "無題" : sanitized;
     }
 
@@ -75,9 +113,10 @@ public class TextConversionService
             return result;
         }
 
-        if (!Directory.Exists(options.OutputDirectory))
+        string fullOutputDir = Path.GetFullPath(options.OutputDirectory);
+        if (!Directory.Exists(fullOutputDir))
         {
-            Directory.CreateDirectory(options.OutputDirectory);
+            Directory.CreateDirectory(fullOutputDir);
         }
 
         var encoding = GetEncoding(options.EncodingName);
@@ -101,7 +140,14 @@ public class TextConversionService
             }
             usedFileNames.Add(fileName);
 
-            string targetPath = Path.Combine(options.OutputDirectory, fileName);
+            string targetPath = Path.GetFullPath(Path.Combine(fullOutputDir, fileName));
+
+            // パストラバーサル脆弱性防御: 出力先ディレクトリ外への書き込みを阻止
+            if (!targetPath.StartsWith(fullOutputDir, StringComparison.OrdinalIgnoreCase))
+            {
+                result.Errors.Add($"セキュリティ警告: 不正なファイルパスへの書き込みがブロックされました: [{fileName}]");
+                continue;
+            }
 
             if (File.Exists(targetPath) && !options.OverwriteExisting)
             {

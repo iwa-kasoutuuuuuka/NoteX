@@ -13,6 +13,8 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private ScrollViewer? _editorScrollViewer;
 
+    private int _lastLineCount = -1;
+
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
@@ -22,6 +24,7 @@ public partial class MainWindow : Window
         _viewModel.RegisterFindReplaceHandlers(ExecuteFind, ExecuteReplace);
 
         Loaded += MainWindow_Loaded;
+        Unloaded += MainWindow_Unloaded;
         Closing += MainWindow_Closing;
     }
 
@@ -37,6 +40,14 @@ public partial class MainWindow : Window
         }
 
         UpdateLineNumbers();
+    }
+
+    private void MainWindow_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (_editorScrollViewer != null)
+        {
+            _editorScrollViewer.ScrollChanged -= EditorScrollViewer_ScrollChanged;
+        }
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
@@ -64,6 +75,9 @@ public partial class MainWindow : Window
     {
         int lineCount = MainEditorTextBox.LineCount;
         if (lineCount < 1) lineCount = 1;
+
+        if (lineCount == _lastLineCount) return;
+        _lastLineCount = lineCount;
 
         var sb = new StringBuilder();
         for (int i = 1; i <= lineCount; i++)
