@@ -486,3 +486,5 @@ publish/
 
 publish_standalone/
 
+*.zip
+

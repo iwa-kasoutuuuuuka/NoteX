@@ -8,7 +8,7 @@
         Background="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}"
         FontFamily="Segoe UI Variable Text, Yu Gothic UI, Meiryo UI"
-        Icon="pack://application:,,,/Resources/app.ico">
+        Icon="pack://application:,,,/Resources/app.png">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

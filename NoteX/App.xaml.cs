@@ -15,6 +15,28 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        DispatcherUnhandledException += (s, args) =>
+        {
+            try
+            {
+                string logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt");
+                File.WriteAllText(logFile, args.Exception.ToString());
+                MessageBox.Show($"NoteX の実行中に予期しないエラーが発生しました:\n\n{args.Exception.Message}\n\n詳細ログを保存しました: {logFile}", "NoteX エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch { }
+            args.Handled = true;
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+        {
+            try
+            {
+                string logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt");
+                File.WriteAllText(logFile, args.ExceptionObject.ToString());
+            }
+            catch { }
+        };
+
         var settings = _settingsService.LoadSettings();
         ApplyTheme(settings.Theme);
 
