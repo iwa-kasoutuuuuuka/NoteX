@@ -7,7 +7,8 @@
         ShowInTaskbar="False"
         Background="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}"
-        FontFamily="Segoe UI Variable Text, Yu Gothic UI, Meiryo UI">
+        FontFamily="Segoe UI Variable Text, Yu Gothic UI, Meiryo UI"
+        Icon="pack://application:,,,/Resources/app.ico">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

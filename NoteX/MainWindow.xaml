@@ -12,6 +12,7 @@
         Background="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}"
         FontFamily="{Binding Settings.FontFamily}"
+        Icon="pack://application:,,,/Resources/app.ico"
         PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.Resources>

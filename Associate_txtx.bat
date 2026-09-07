@@ -13,6 +13,7 @@ set "EXE_PATH=%~dp0publish_standalone\NoteX.exe"
 REM HKCU\Software\Classes に登録（管理者権限不要）
 reg add "HKCU\Software\Classes\.txtx" /ve /d "NoteX.Document" /f > nul
 reg add "HKCU\Software\Classes\NoteX.Document" /ve /d "NoteX ドキュメント" /f > nul
+reg add "HKCU\Software\Classes\NoteX.Document\DefaultIcon" /ve /d "\"%EXE_PATH%\",0" /f > nul
 reg add "HKCU\Software\Classes\NoteX.Document\shell\open\command" /ve /d "\"%EXE_PATH%\" \"%%1\"" /f > nul
 
 if %ERRORLEVEL% equ 0 (
