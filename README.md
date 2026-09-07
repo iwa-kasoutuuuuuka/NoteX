@@ -12,7 +12,19 @@
 <p align="center">
   <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white" alt=".NET 10" /></a>
   <a href="https://microsoft.com"><img src="https://img.shields.io/badge/Platform-Windows%2011%20%2F%2010-0078D6?logo=windows&logoColor=white" alt="Platform" /></a>
+  <a href="https://github.com/iwa-kasoutuuuuuka/NoteX/releases/latest"><img src="https://img.shields.io/badge/Release-v1.0.0-blue?logo=github" alt="Release v1.0.0" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/iwa-kasoutuuuuuka/NoteX/releases/download/v1.0.0/NoteX_v1.0_Portable_win-x64.zip">
+    <img src="https://img.shields.io/badge/📦_Download-NoteX_v1.0_Portable_Zip_(win--x64)-2ea44f?style=for-the-badge&logo=windows&logoColor=white" alt="Download NoteX Portable Zip" />
+  </a>
+</p>
+
+<p align="center">
+  👉 <strong><a href="https://github.com/iwa-kasoutuuuuuka/NoteX/releases/download/v1.0.0/NoteX_v1.0_Portable_win-x64.zip">NoteX_v1.0_Portable_win-x64.zip をダウンロード</a></strong><br>
+  <em>※ インストール不要・.NETランタイム不要。解凍して NoteX.exe をダブルクリックするだけで直ちに動作します。</em>
 </p>
 
 ---
@@ -136,7 +148,7 @@ Windows 11 の標準メモ帳にタブ機能が実装されましたが、タブ
 git clone https://github.com/iwa-kasoutuuuuuka/NoteX.git
 cd NoteX
 
-# 単体テストの実行 (12件全合格)
+# 単体テストの実行 (31件全合格: セキュリティ・ストレステスト含む)
 dotnet test
 
 # アプリケーションの起動
