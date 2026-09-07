@@ -143,7 +143,8 @@ public class TextConversionService
             string targetPath = Path.GetFullPath(Path.Combine(fullOutputDir, fileName));
 
             // パストラバーサル脆弱性防御: 出力先ディレクトリ外への書き込みを阻止
-            if (!targetPath.StartsWith(fullOutputDir, StringComparison.OrdinalIgnoreCase))
+            string dirWithSeparator = fullOutputDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (!targetPath.StartsWith(dirWithSeparator, StringComparison.OrdinalIgnoreCase))
             {
                 result.Errors.Add($"セキュリティ警告: 不正なファイルパスへの書き込みがブロックされました: [{fileName}]");
                 continue;
@@ -266,11 +267,23 @@ public class TextConversionService
             .Replace("\n", targetNewLine);
     }
 
+    public const long MaxImportFileSize = 50 * 1024 * 1024; // 50MB
+
     /// <summary>
     /// ファイルのエンコーディング（UTF-8, UTF-8 BOM, Shift_JIS）を自動判別してテキスト読込
     /// </summary>
     public static (string Content, Encoding Encoding) DetectAndReadAllText(string filePath)
     {
+        var fileInfo = new FileInfo(filePath);
+        if (fileInfo.Length > MaxImportFileSize)
+        {
+            throw new InvalidDataException($"ファイルサイズが大きすぎます ({fileInfo.Length / (1024 * 1024)}MB)。50MB以下のファイルを指定してください。");
+        }
+        if (fileInfo.Length == 0)
+        {
+            return (string.Empty, Encoding.UTF8);
+        }
+
         byte[] bytes = File.ReadAllBytes(filePath);
 
         // BOMチェック

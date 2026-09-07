@@ -78,13 +78,15 @@ public class MainViewModel : ViewModelBase
     }
 
     private string _windowTitle = "無題 - NoteX";
+    private bool _isStructureModified = false;
+
     public string WindowTitle
     {
         get => _windowTitle;
         private set => SetProperty(ref _windowTitle, value);
     }
 
-    public bool IsDocumentModified => Pages.Any(p => p.IsModified) || (string.IsNullOrEmpty(CurrentFilePath) && Pages.Any(p => !string.IsNullOrEmpty(p.Content)));
+    public bool IsDocumentModified => _isStructureModified || Pages.Any(p => p.IsModified) || (string.IsNullOrEmpty(CurrentFilePath) && Pages.Any(p => !string.IsNullOrEmpty(p.Content)));
 
     private string _pageCountText = "ページ 1 / 1";
     public string PageCountText
@@ -108,7 +110,20 @@ public class MainViewModel : ViewModelBase
     }
 
     public string StatusEncodingText => SelectedPage?.Encoding.ToUpperInvariant() ?? "UTF-8";
-    public string StatusNewLineText => "CRLF";
+
+    public string StatusNewLineText
+    {
+        get
+        {
+            string? content = SelectedPage?.Content;
+            if (string.IsNullOrEmpty(content)) return "Windows (CRLF)";
+            if (content.Contains("\r\n")) return "Windows (CRLF)";
+            if (content.Contains('\n')) return "Unix (LF)";
+            if (content.Contains('\r')) return "Macintosh (CR)";
+            return "Windows (CRLF)";
+        }
+    }
+
     public string StatusZoomText => $"{Settings.ZoomLevel:0}%";
 
     public bool IsFindReplaceVisible
@@ -148,6 +163,9 @@ public class MainViewModel : ViewModelBase
     public RelayCommand<PageViewModel> MovePageLeftCommand { get; }
     public RelayCommand<PageViewModel> MovePageRightCommand { get; }
     public RelayCommand<PageViewModel> RenamePageCommand { get; }
+
+    public RelayCommand NextPageCommand { get; }
+    public RelayCommand PreviousPageCommand { get; }
 
     public RelayCommand ExportAllPagesToTxtCommand { get; }
     public RelayCommand ExportCurrentPageToTxtCommand { get; }
@@ -197,6 +215,9 @@ public class MainViewModel : ViewModelBase
         MovePageRightCommand = new RelayCommand<PageViewModel>(MovePageRight, p => p != null && Pages.IndexOf(p) < Pages.Count - 1);
         RenamePageCommand = new RelayCommand<PageViewModel>(RenamePage, p => p != null);
 
+        NextPageCommand = new RelayCommand(NextPage, () => Pages.Count > 1);
+        PreviousPageCommand = new RelayCommand(PreviousPage, () => Pages.Count > 1);
+
         ExportAllPagesToTxtCommand = new RelayCommand(ExportAllPagesToTxt);
         ExportCurrentPageToTxtCommand = new RelayCommand(ExportCurrentPageToTxt, () => SelectedPage != null);
         ExportMergedTxtCommand = new RelayCommand(ExportMergedTxt);
@@ -228,7 +249,7 @@ public class MainViewModel : ViewModelBase
         _replaceHandler = replaceHandler;
     }
 
-    private void CreateInitialDocument()
+    public void CreateInitialDocument()
     {
         Pages.Clear();
         var defaultPage = new PageViewModel
@@ -241,6 +262,7 @@ public class MainViewModel : ViewModelBase
         SelectedPage = defaultPage;
         CurrentFilePath = null;
         DocumentTitle = "無題";
+        _isStructureModified = false;
         UpdateWindowTitle();
     }
 
@@ -263,7 +285,7 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private void UpdateWindowTitle()
+    public void UpdateWindowTitle()
     {
         string modifiedIndicator = IsDocumentModified ? "*" : "";
         string fileName = !string.IsNullOrEmpty(CurrentFilePath)
@@ -288,7 +310,7 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private void UpdatePageCountText()
+    public void UpdatePageCountText()
     {
         if (SelectedPage != null && Pages.Count > 0)
         {
@@ -367,6 +389,7 @@ public class MainViewModel : ViewModelBase
 
             CurrentFilePath = filePath;
             DocumentTitle = Path.GetFileNameWithoutExtension(filePath);
+            _isStructureModified = false;
             UpdateWindowTitle();
             UpdatePageCountText();
 
@@ -407,6 +430,7 @@ public class MainViewModel : ViewModelBase
                 page.MarkAsSaved();
             }
 
+            _isStructureModified = false;
             _settingsService.AddRecentFile(_settings, CurrentFilePath);
             UpdateWindowTitle();
             return true;
@@ -446,6 +470,7 @@ public class MainViewModel : ViewModelBase
         };
         Pages.Add(newPage);
         SelectedPage = newPage;
+        _isStructureModified = true;
         UpdatePageCountText();
         UpdateWindowTitle();
     }
@@ -474,6 +499,7 @@ public class MainViewModel : ViewModelBase
             page.Title = "ページ 1";
             page.Content = string.Empty;
             page.MarkAsSaved();
+            _isStructureModified = false;
             UpdateWindowTitle();
             return;
         }
@@ -487,6 +513,7 @@ public class MainViewModel : ViewModelBase
             SelectedPage = Pages[newIdx];
         }
 
+        _isStructureModified = true;
         UpdatePageCountText();
         UpdateWindowTitle();
     }
@@ -500,6 +527,7 @@ public class MainViewModel : ViewModelBase
         int index = Pages.IndexOf(page);
         Pages.Insert(index + 1, clone);
         SelectedPage = clone;
+        _isStructureModified = true;
         UpdatePageCountText();
         UpdateWindowTitle();
     }
@@ -514,7 +542,9 @@ public class MainViewModel : ViewModelBase
         {
             Pages.Move(index, index - 1);
             SelectedPage = page;
+            _isStructureModified = true;
             UpdatePageCountText();
+            UpdateWindowTitle();
         }
     }
 
@@ -528,8 +558,104 @@ public class MainViewModel : ViewModelBase
         {
             Pages.Move(index, index + 1);
             SelectedPage = page;
+            _isStructureModified = true;
             UpdatePageCountText();
+            UpdateWindowTitle();
         }
+    }
+
+    public void NextPage()
+    {
+        if (Pages.Count <= 1) return;
+        int idx = SelectedPage != null ? Pages.IndexOf(SelectedPage) : -1;
+        int nextIdx = (idx + 1) % Pages.Count;
+        SelectedPage = Pages[nextIdx];
+    }
+
+    public void PreviousPage()
+    {
+        if (Pages.Count <= 1) return;
+        int idx = SelectedPage != null ? Pages.IndexOf(SelectedPage) : -1;
+        int prevIdx = idx <= 0 ? Pages.Count - 1 : idx - 1;
+        SelectedPage = Pages[prevIdx];
+    }
+
+    public void HandleDroppedFiles(string[] files)
+    {
+        if (files == null || files.Length == 0) return;
+
+        // .txtx ファイルがある場合はそれを開く
+        string? txtxFile = files.FirstOrDefault(f => Path.GetExtension(f).Equals(".txtx", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(txtxFile))
+        {
+            if (!ConfirmSaveIfModified()) return;
+            LoadDocumentFromPath(txtxFile);
+            return;
+        }
+
+        // テキストファイルを抽出
+        var txtFiles = files.Where(f =>
+        {
+            string ext = Path.GetExtension(f).ToLowerInvariant();
+            return ext is ".txt" or ".log" or ".csv" or ".md" or ".json" or ".xaml" or ".cs" or ".xml";
+        }).ToArray();
+
+        if (txtFiles.Length > 0)
+        {
+            var imported = _conversionService.ImportFiles(txtFiles);
+            if (imported.Count == 0) return;
+
+            bool replaceFirstEmpty = Pages.Count == 1 && string.IsNullOrEmpty(Pages[0].Content) && Pages[0].Title == "ページ 1";
+            if (replaceFirstEmpty)
+            {
+                Pages.Clear();
+            }
+
+            foreach (var page in imported)
+            {
+                var vm = PageViewModel.FromModel(page);
+                vm.IsModified = true;
+                Pages.Add(vm);
+            }
+
+            SelectedPage = Pages.LastOrDefault();
+            _isStructureModified = true;
+            UpdatePageCountText();
+            UpdateWindowTitle();
+        }
+    }
+
+    public static (int Line, int Column) GetLogicalLineAndColumn(string text, int caretIndex)
+    {
+        if (string.IsNullOrEmpty(text) || caretIndex <= 0)
+        {
+            return (1, 1);
+        }
+
+        int caret = Math.Clamp(caretIndex, 0, text.Length);
+        int line = 1;
+        int lastLineBreakEnd = 0;
+
+        for (int i = 0; i < caret; i++)
+        {
+            if (text[i] == '\r')
+            {
+                line++;
+                if (i + 1 < caret && text[i + 1] == '\n')
+                {
+                    i++;
+                }
+                lastLineBreakEnd = i + 1;
+            }
+            else if (text[i] == '\n')
+            {
+                line++;
+                lastLineBreakEnd = i + 1;
+            }
+        }
+
+        int col = caret - lastLineBreakEnd + 1;
+        return (line, col);
     }
 
     public void RenamePage(PageViewModel? page)
@@ -642,6 +768,7 @@ public class MainViewModel : ViewModelBase
         }
 
         SelectedPage = Pages.LastOrDefault();
+        _isStructureModified = true;
         UpdatePageCountText();
         UpdateWindowTitle();
         _dialogService.ShowMessage($"{imported.Count} 個のテキストファイルを新しいページとして取り込みました。", "インポート完了");
@@ -673,6 +800,7 @@ public class MainViewModel : ViewModelBase
         }
 
         SelectedPage = Pages.LastOrDefault();
+        _isStructureModified = true;
         UpdatePageCountText();
         UpdateWindowTitle();
         _dialogService.ShowMessage($"{imported.Count} 個のテキストファイルを取り込みました。", "インポート完了");

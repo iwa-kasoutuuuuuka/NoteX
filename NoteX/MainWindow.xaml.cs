@@ -12,8 +12,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private ScrollViewer? _editorScrollViewer;
-
-    private int _lastLineCount = -1;
+    private PageViewModel? _previousSelectedPage;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -21,11 +20,13 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = _viewModel;
 
+        _previousSelectedPage = _viewModel.SelectedPage;
         _viewModel.RegisterFindReplaceHandlers(ExecuteFind, ExecuteReplace);
 
         Loaded += MainWindow_Loaded;
         Unloaded += MainWindow_Unloaded;
         Closing += MainWindow_Closing;
+        SizeChanged += (_, _) => UpdateLineNumbers();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -76,13 +77,40 @@ public partial class MainWindow : Window
         int lineCount = MainEditorTextBox.LineCount;
         if (lineCount < 1) lineCount = 1;
 
-        if (lineCount == _lastLineCount) return;
-        _lastLineCount = lineCount;
-
+        string text = MainEditorTextBox.Text;
         var sb = new StringBuilder();
-        for (int i = 1; i <= lineCount; i++)
+        int logicalLine = 1;
+
+        for (int i = 0; i < lineCount; i++)
         {
-            sb.AppendLine(i.ToString());
+            int charIdx = MainEditorTextBox.GetCharacterIndexFromLineIndex(i);
+            if (i == 0)
+            {
+                sb.AppendLine(logicalLine.ToString());
+            }
+            else
+            {
+                bool isNewLogicalLine = false;
+                if (charIdx > 0 && charIdx <= text.Length)
+                {
+                    char prevChar = text[charIdx - 1];
+                    if (prevChar == '\n' || prevChar == '\r')
+                    {
+                        isNewLogicalLine = true;
+                    }
+                }
+
+                if (isNewLogicalLine)
+                {
+                    logicalLine++;
+                    sb.AppendLine(logicalLine.ToString());
+                }
+                else
+                {
+                    // 折り返された継続行: 空行を出力して高さを同期
+                    sb.AppendLine();
+                }
+            }
         }
         LineNumberTextBlock.Text = sb.ToString();
     }
@@ -91,15 +119,44 @@ public partial class MainWindow : Window
     {
         if (_viewModel.SelectedPage == null) return;
 
-        int caret = MainEditorTextBox.CaretIndex;
-        int lineIndex = MainEditorTextBox.GetLineIndexFromCharacterIndex(caret);
-        if (lineIndex < 0) lineIndex = 0;
+        string text = MainEditorTextBox.Text;
+        int caret = Math.Clamp(MainEditorTextBox.CaretIndex, 0, text.Length);
 
-        int lineStart = MainEditorTextBox.GetCharacterIndexFromLineIndex(lineIndex);
-        int col = caret - lineStart + 1;
-        int line = lineIndex + 1;
+        var (line, col) = MainViewModel.GetLogicalLineAndColumn(text, caret);
+        double vOffset = _editorScrollViewer?.VerticalOffset ?? 0.0;
 
-        _viewModel.SelectedPage.UpdateCaretPosition(line, col, MainEditorTextBox.SelectionLength);
+        _viewModel.SelectedPage.UpdateCaretPosition(line, col, MainEditorTextBox.SelectionLength, caret, vOffset);
+    }
+
+    private void PageTabsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // 直前のページのカーソル・スクロール位置を保存
+        if (_previousSelectedPage != null)
+        {
+            _previousSelectedPage.CaretIndex = MainEditorTextBox.CaretIndex;
+            if (_editorScrollViewer != null)
+            {
+                _previousSelectedPage.VerticalOffset = _editorScrollViewer.VerticalOffset;
+            }
+        }
+
+        _previousSelectedPage = _viewModel.SelectedPage;
+
+        // 新しいページのカーソル・スクロール位置を復元
+        if (_previousSelectedPage != null)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                int caret = Math.Clamp(_previousSelectedPage.CaretIndex, 0, MainEditorTextBox.Text.Length);
+                MainEditorTextBox.CaretIndex = caret;
+                if (_editorScrollViewer != null)
+                {
+                    _editorScrollViewer.ScrollToVerticalOffset(_previousSelectedPage.VerticalOffset);
+                }
+                MainEditorTextBox.Focus();
+                UpdateLineNumbers();
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
+        }
     }
 
     private void MainEditorTextBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -234,7 +291,10 @@ public partial class MainWindow : Window
 
             if (count > 0)
             {
-                MainEditorTextBox.Text = sb.ToString();
+                MainEditorTextBox.BeginChange();
+                MainEditorTextBox.SelectAll();
+                MainEditorTextBox.SelectedText = sb.ToString();
+                MainEditorTextBox.EndChange();
                 MessageBox.Show(this, $"{count} 箇所を置換しました。", "NoteX 置換", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             else
@@ -261,6 +321,33 @@ public partial class MainWindow : Window
         if (line >= 0)
         {
             MainEditorTextBox.ScrollToLine(line);
+        }
+    }
+
+    // ドラッグ＆ドロップ
+    private void Window_PreviewDragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+    }
+
+    private void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            if (files != null && files.Length > 0)
+            {
+                _viewModel.HandleDroppedFiles(files);
+                MainEditorTextBox.Focus();
+            }
         }
     }
 

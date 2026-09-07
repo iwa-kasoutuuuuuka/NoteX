@@ -13,6 +13,9 @@
         Foreground="{DynamicResource PrimaryTextBrush}"
         FontFamily="{Binding Settings.FontFamily}"
         Icon="pack://application:,,,/Resources/app.png"
+        AllowDrop="True"
+        Drop="Window_Drop"
+        PreviewDragOver="Window_PreviewDragOver"
         PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.Resources>
@@ -30,6 +33,8 @@
         <KeyBinding Key="S" Modifiers="Control+Shift" Command="{Binding SaveAsDocumentCommand}"/>
         <KeyBinding Key="T" Modifiers="Control" Command="{Binding AddNewPageCommand}"/>
         <KeyBinding Key="W" Modifiers="Control" Command="{Binding ClosePageCommand}" CommandParameter="{Binding SelectedPage}"/>
+        <KeyBinding Key="Tab" Modifiers="Control" Command="{Binding NextPageCommand}"/>
+        <KeyBinding Key="Tab" Modifiers="Control+Shift" Command="{Binding PreviousPageCommand}"/>
         <KeyBinding Key="F" Modifiers="Control" Command="{Binding ShowFindCommand}"/>
         <KeyBinding Key="H" Modifiers="Control" Command="{Binding ShowReplaceCommand}"/>
         <KeyBinding Key="F3" Command="{Binding FindNextCommand}"/>
@@ -68,6 +73,9 @@
                 <MenuItem Header="現在のページを閉じる(_W)" InputGestureText="Ctrl+W" Command="{Binding ClosePageCommand}" CommandParameter="{Binding SelectedPage}"/>
                 <MenuItem Header="ページ名を変更(_R)..." InputGestureText="F2" Command="{Binding RenamePageCommand}" CommandParameter="{Binding SelectedPage}"/>
                 <MenuItem Header="ページを複製(_D)" Command="{Binding DuplicatePageCommand}" CommandParameter="{Binding SelectedPage}"/>
+                <Separator/>
+                <MenuItem Header="次のページ(_K)" InputGestureText="Ctrl+Tab" Command="{Binding NextPageCommand}"/>
+                <MenuItem Header="前のページ(_J)" InputGestureText="Ctrl+Shift+Tab" Command="{Binding PreviousPageCommand}"/>
                 <Separator/>
                 <MenuItem Header="左へ移動" Command="{Binding MovePageLeftCommand}" CommandParameter="{Binding SelectedPage}"/>
                 <MenuItem Header="右へ移動" Command="{Binding MovePageRightCommand}" CommandParameter="{Binding SelectedPage}"/>
@@ -129,6 +137,7 @@
                     <ListBox x:Name="PageTabsListBox"
                              ItemsSource="{Binding Pages}"
                              SelectedItem="{Binding SelectedPage, Mode=TwoWay}"
+                             SelectionChanged="PageTabsListBox_SelectionChanged"
                              ItemContainerStyle="{StaticResource PageTabItemStyle}"
                              BorderThickness="0"
                              Background="Transparent"

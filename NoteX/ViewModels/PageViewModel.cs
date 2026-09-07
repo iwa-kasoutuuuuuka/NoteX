@@ -15,6 +15,20 @@ public class PageViewModel : ViewModelBase
     private string _encoding = "utf-8";
     private DateTime _createdAt = DateTime.Now;
     private DateTime _modifiedAt = DateTime.Now;
+    private int _caretIndex = 0;
+    private double _verticalOffset = 0.0;
+
+    public int CaretIndex
+    {
+        get => _caretIndex;
+        set => SetProperty(ref _caretIndex, value);
+    }
+
+    public double VerticalOffset
+    {
+        get => _verticalOffset;
+        set => SetProperty(ref _verticalOffset, value);
+    }
 
     public string Id
     {
@@ -121,11 +135,13 @@ public class PageViewModel : ViewModelBase
         }
     }
 
-    public void UpdateCaretPosition(int line, int column, int selectionLength)
+    public void UpdateCaretPosition(int line, int column, int selectionLength, int caretIndex = 0, double verticalOffset = 0.0)
     {
         CursorLine = line;
         CursorColumn = column;
         SelectedCharCount = selectionLength;
+        CaretIndex = caretIndex;
+        VerticalOffset = verticalOffset;
     }
 
     public void MarkAsSaved()

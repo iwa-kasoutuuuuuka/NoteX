@@ -47,21 +47,29 @@ public partial class App : Application
         var mainViewModel = new MainViewModel(fileService, conversionService, _settingsService, dialogService);
 
         // コマンドライン引数でファイルが指定されている場合
-        if (e.Args.Length > 0 && File.Exists(e.Args[0]))
+        if (e.Args.Length > 0)
         {
-            string ext = Path.GetExtension(e.Args[0]).ToLowerInvariant();
-            if (ext == ".txtx")
+            var validFiles = e.Args.Where(File.Exists).ToArray();
+            string? firstTxtx = validFiles.FirstOrDefault(f => Path.GetExtension(f).Equals(".txtx", StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrEmpty(firstTxtx))
             {
-                mainViewModel.LoadDocumentFromPath(e.Args[0]);
+                mainViewModel.LoadDocumentFromPath(firstTxtx);
             }
-            else if (ext == ".txt")
+            else if (validFiles.Length > 0)
             {
-                var imported = conversionService.ImportFiles(new[] { e.Args[0] });
+                var imported = conversionService.ImportFiles(validFiles);
                 if (imported.Count > 0)
                 {
                     mainViewModel.Pages.Clear();
-                    mainViewModel.Pages.Add(PageViewModel.FromModel(imported[0]));
+                    foreach (var page in imported)
+                    {
+                        mainViewModel.Pages.Add(PageViewModel.FromModel(page));
+                    }
                     mainViewModel.SelectedPage = mainViewModel.Pages[0];
+                    mainViewModel.DocumentTitle = Path.GetFileNameWithoutExtension(validFiles[0]);
+                    mainViewModel.UpdateWindowTitle();
+                    mainViewModel.UpdatePageCountText();
                 }
             }
         }

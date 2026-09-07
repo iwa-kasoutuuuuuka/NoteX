@@ -31,6 +31,8 @@ public partial class InputPromptWindow : Window
 
     private void InputTextBox_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.ImeProcessed) return;
+
         if (e.Key == Key.Enter)
         {
             DialogResult = true;

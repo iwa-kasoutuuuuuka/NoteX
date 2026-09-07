@@ -97,7 +97,15 @@ public class FileService
 
             if (File.Exists(filePath))
             {
-                File.Replace(tempFilePath, filePath, null);
+                try
+                {
+                    File.Replace(tempFilePath, filePath, null);
+                }
+                catch
+                {
+                    File.Copy(tempFilePath, filePath, true);
+                    try { File.Delete(tempFilePath); } catch { }
+                }
             }
             else
             {
