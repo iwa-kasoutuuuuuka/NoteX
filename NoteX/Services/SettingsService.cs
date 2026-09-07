@@ -6,25 +6,47 @@ namespace NoteX.Services;
 
 public class SettingsService
 {
-    private static readonly string SettingsDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "NoteX"
-    );
-
-    private static readonly string SettingsFilePath = Path.Combine(SettingsDirectory, "settings.json");
+    private readonly string _settingsFilePath;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
     };
 
+    public SettingsService(string? customSettingsPath = null)
+    {
+        if (!string.IsNullOrEmpty(customSettingsPath))
+        {
+            _settingsFilePath = customSettingsPath;
+            return;
+        }
+
+        string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+        string localSettingsFile = Path.Combine(exeDir, "settings.json");
+        string portableMarker = Path.Combine(exeDir, "portable.txt");
+
+        // exeと同階層に settings.json または portable.txt がある場合は完全ローカル・ポータブルモードで動作
+        if (File.Exists(localSettingsFile) || File.Exists(portableMarker))
+        {
+            _settingsFilePath = localSettingsFile;
+        }
+        else
+        {
+            string appDataDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "NoteX"
+            );
+            _settingsFilePath = Path.Combine(appDataDir, "settings.json");
+        }
+    }
+
     public AppSettings LoadSettings()
     {
         try
         {
-            if (File.Exists(SettingsFilePath))
+            if (File.Exists(_settingsFilePath))
             {
-                string json = File.ReadAllText(SettingsFilePath);
+                string json = File.ReadAllText(_settingsFilePath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
                 if (settings != null) return settings;
             }
@@ -41,13 +63,14 @@ public class SettingsService
     {
         try
         {
-            if (!Directory.Exists(SettingsDirectory))
+            string? dir = Path.GetDirectoryName(_settingsFilePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
-                Directory.CreateDirectory(SettingsDirectory);
+                Directory.CreateDirectory(dir);
             }
 
             string json = JsonSerializer.Serialize(settings, JsonOptions);
-            File.WriteAllText(SettingsFilePath, json);
+            File.WriteAllText(_settingsFilePath, json);
         }
         catch
         {

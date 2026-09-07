@@ -1,3 +1,4 @@
+using System.IO;
 using NoteX.Models;
 using NoteX.Services;
 using NoteX.ViewModels;
@@ -139,5 +140,36 @@ public class ViewModelTests
 
         _vm.ResetZoom();
         Assert.Equal(100.0, _vm.Settings.ZoomLevel);
+    }
+
+    [Fact]
+    public void PortableSettings_LoadsAndSavesToSpecifiedLocation()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "NoteX_Portable_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string settingsFile = Path.Combine(tempDir, "settings.json");
+            var service = new SettingsService(settingsFile);
+
+            var settings = service.LoadSettings();
+            settings.FontSize = 22.0;
+            settings.Theme = "Dark";
+            service.SaveSettings(settings);
+
+            Assert.True(File.Exists(settingsFile));
+
+            var service2 = new SettingsService(settingsFile);
+            var loaded = service2.LoadSettings();
+            Assert.Equal(22.0, loaded.FontSize);
+            Assert.Equal("Dark", loaded.Theme);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
     }
 }

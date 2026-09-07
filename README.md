@@ -136,10 +136,26 @@ dotnet run --project NoteX/NoteX.csproj
 ```
 
 ### 配布用実行ファイルのビルド
+
+#### 1. 完全ローカル・単一自己完結型EXE（推奨・ランタイム不要）
+.NET ランタイムが未インストールのPCや、オフライン環境、USBメモリでも単体で動作するポータブル版です。
+```powershell
+dotnet publish NoteX/NoteX.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ./publish_standalone
+```
+- `publish_standalone/NoteX.exe` を任意の場所にコピーするだけで即座に使用可能です。
+- 同フォルダに `portable.txt` を配置することで、設定ファイル (`settings.json`) もローカルに保存される「完全ポータブルモード」で動作します。
+
+#### 2. フレームワーク依存版（軽量・要.NET 10ランタイム）
 ```powershell
 dotnet publish NoteX/NoteX.csproj -c Release -r win-x64 --self-contained false -o ./publish
 ```
-`./publish/NoteX.exe` が生成されます。
+
+---
+
+## 便利なユーティリティスクリプト
+
+- **`CreateShortcut.bat`**: デスクトップに NoteX の起動ショートカットを自動作成します。
+- **`Associate_txtx.bat`**: `.txtx` ファイルをダブルクリックした際に NoteX で開けるように Windows への関連付けを登録します（管理者権限不要）。
 
 ---
 

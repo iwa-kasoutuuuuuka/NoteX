@@ -484,3 +484,5 @@ $RECYCLE.BIN/
 publish/
 *.txtx
 
+publish_standalone/
+
