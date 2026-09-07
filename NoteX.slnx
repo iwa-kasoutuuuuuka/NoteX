@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NoteX.Tests/NoteX.Tests.csproj" />
+  <Project Path="NoteX/NoteX.csproj" />
+</Solution>

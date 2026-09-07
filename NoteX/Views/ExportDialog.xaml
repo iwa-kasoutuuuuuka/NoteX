@@ -1,0 +1,75 @@
+<Window x:Class="NoteX.Views.ExportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="全ページ一括テキスト出力 - NoteX" Height="360" Width="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="Segoe UI Variable Text, Yu Gothic UI, Meiryo UI">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="全ページを個別の .txt ファイルに出力" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,16"/>
+
+        <StackPanel Grid.Row="1">
+            <!-- 出力先フォルダ -->
+            <StackPanel Margin="0,0,0,14">
+                <TextBlock Text="出力先フォルダ:" Margin="0,0,0,6" FontSize="12"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="FolderPathTextBox" Height="30" VerticalContentAlignment="Center" Padding="6,0"
+                             Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}"
+                             BorderBrush="{DynamicResource ControlBorderBrush}"/>
+                    <Button Grid.Column="1" Content="参照..." Width="70" Height="30" Margin="8,0,0,0"
+                            Style="{DynamicResource FluentButtonStyle}" Click="BrowseFolder_Click"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- オプション -->
+            <GroupBox Header="出力オプション" Padding="10" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource ControlBorderBrush}">
+                <StackPanel>
+                    <CheckBox x:Name="NumberPrefixCheckBox" Content="ページ順の連番をファイル名の先頭に付ける (例: 01_ページ名.txt)" IsChecked="True" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="OverwriteCheckBox" Content="同名ファイルが存在する場合は上書きする" IsChecked="True" Margin="0,0,0,8"/>
+
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="120"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="文字コード:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox x:Name="EncodingComboBox" Grid.Column="1" Height="26" SelectedIndex="0">
+                            <ComboBoxItem Content="UTF-8" Tag="utf-8"/>
+                            <ComboBoxItem Content="Shift_JIS" Tag="shift_jis"/>
+                        </ComboBox>
+
+                        <TextBlock Grid.Column="3" Text="改行コード:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox x:Name="NewLineComboBox" Grid.Column="4" Height="26" SelectedIndex="0">
+                            <ComboBoxItem Content="CRLF (Windows)" Tag="&#13;&#10;"/>
+                            <ComboBoxItem Content="LF (Unix/Mac)" Tag="&#10;"/>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+
+        <!-- アクションボタン -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="エクスポート実行" Width="120" Height="32" Margin="0,0,10,0" IsDefault="True" Click="ExportButton_Click"
+                    Style="{DynamicResource AccentButtonStyle}"/>
+            <Button Content="キャンセル" Width="90" Height="32" IsCancel="True" Click="CancelButton_Click"
+                    Style="{DynamicResource FluentButtonStyle}"/>
+        </StackPanel>
+    </Grid>
+</Window>
