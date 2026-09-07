@@ -1,7 +1,12 @@
-# NoteX 📝
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iwa-kasoutuuuuuka/NoteX/main/Resources/app.png" width="160" height="160" alt="NoteX App Icon" />
+</p>
+
+<h1 align="center">NoteX</h1>
 
 <p align="center">
-  <img src="Resources/app.png" width="128" height="128" alt="NoteX Icon" />
+  <strong>1つのファイル（.txtx）で複数ページのテキストを扱える、Windows向け次世代タブ型メモ帳</strong><br>
+  Windows 11 メモ帳と同等の軽快な操作感を維持しながら、ファイル散乱問題をスマートに解決します。
 </p>
 
 <p align="center">
@@ -9,9 +14,6 @@
   <a href="https://microsoft.com"><img src="https://img.shields.io/badge/Platform-Windows%2011%20%2F%2010-0078D6?logo=windows&logoColor=white" alt="Platform" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
 </p>
-
-> **1つのファイル（.txtx）で複数ページのテキストを扱える、Windows向け次世代タブ型メモ帳。**  
-> Windows 11 のメモ帳と同等の基本操作感・軽快さを維持しながら、タブごとにファイルが増えてしまう問題を解決します。
 
 ---
 
