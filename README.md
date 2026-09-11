@@ -174,7 +174,7 @@ Windows 11 の標準メモ帳にタブ機能が実装されましたが、タブ
 git clone https://github.com/iwa-kasoutuuuuuka/NoteX.git
 cd NoteX
 
-# 単体テストの実行 (41件全合格: セキュリティ・ストレステスト含む)
+# 単体テストの実行 (49件全合格: セキュリティ・ストレステスト・回帰テスト含む)
 dotnet test
  
 # アプリケーションの起動
@@ -200,10 +200,21 @@ dotnet publish NoteX/NoteX.csproj -c Release -r win-x64 --self-contained false -
 
 ## 🚀 クイックスタート（ポータブル版の使い方）
 
-1. **ダウンロード**:  
-   [NoteX_v1.0_Portable_win-x64.zip](https://github.com/iwa-kasoutuuuuuka/NoteX/releases/download/v1.0.0/NoteX_v1.0_Portable_win-x64.zip) をダウンロードします。
+### 📦 ポータブル版の配置場所（ローカル環境）
+ビルド・パッケージ済みのポータブル版ファイルは、本プロジェクト内の以下のフルパスに配置されています：
+
+- **ポータブル版 実行ファイル（単一自己完結EXE）**:  
+  `E:\NoteX\publish_standalone\NoteX.exe`  
+  *(実行に必要なランタイムやライブラリがすべて内包されており、単体でそのまま起動可能)*
+- **ポータブル版 配布用Zipアーカイブ**:  
+  `E:\NoteX\NoteX_v1.0_Portable_win-x64.zip`  
+  *(上記実行ファイルおよび設定ファイルを一括圧縮した配布用パッケージ)*
+
+### 使い方
+1. **ダウンロード / 入手**:  
+   [NoteX_v1.0_Portable_win-x64.zip](https://github.com/iwa-kasoutuuuuuka/NoteX/releases/download/v1.0.0/NoteX_v1.0_Portable_win-x64.zip) をダウンロードするか、ローカルの `E:\NoteX\NoteX_v1.0_Portable_win-x64.zip` を利用します。
 2. **解凍**:  
-   ダウンロードした Zip ファイルを右クリックし、「すべて展開」を選択して任意のフォルダ（デスクトップ、USBメモリなど）に展開します。
+   Zip ファイルを右クリックし、「すべて展開」を選択して任意のフォルダ（デスクトップ、USBメモリなど）に展開します。
 3. **起動**:  
    展開したフォルダ内の **`NoteX.exe`** をダブルクリックするとすぐに起動します。  
    *(管理者権限や .NET ランタイムの事前インストールは不要です)*
