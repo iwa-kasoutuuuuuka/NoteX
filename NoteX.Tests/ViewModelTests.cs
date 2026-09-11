@@ -102,10 +102,20 @@ public class ViewModelTests
     }
 
     [Fact]
-    public void RenamePage_UpdatesTitleViaDialog()
+    public void RenamePage_StartsInlineEditing()
     {
         var page = _vm.SelectedPage!;
         _vm.RenamePage(page);
+
+        Assert.True(page.IsEditingTitle);
+        Assert.Equal("ページ 1", page.EditingTitleText);
+    }
+
+    [Fact]
+    public void RenamePageViaDialog_UpdatesTitleViaDialog()
+    {
+        var page = _vm.SelectedPage!;
+        _vm.RenamePageViaDialog(page);
 
         Assert.Equal("リネームテスト", page.Title);
         Assert.True(page.IsModified);
@@ -261,5 +271,63 @@ public class ViewModelTests
                 Directory.Delete(tempDir, true);
             }
         }
+    }
+
+    [Fact]
+    public void InlineRename_Lifecycle_WorksCorrectly()
+    {
+        var page = _vm.SelectedPage!;
+        Assert.Equal("ページ 1", page.Title);
+        Assert.False(page.IsEditingTitle);
+
+        // 編集開始
+        _vm.StartRenamePage(page);
+        Assert.True(page.IsEditingTitle);
+        Assert.Equal("ページ 1", page.EditingTitleText);
+
+        // 編集して確定
+        page.EditingTitleText = "メモ用テキスト";
+        page.CommitTitleEditing();
+        Assert.False(page.IsEditingTitle);
+        Assert.Equal("メモ用テキスト", page.Title);
+        Assert.True(page.IsModified);
+
+        // 再度編集してキャンセル
+        _vm.StartRenamePage(page);
+        page.EditingTitleText = "破棄されるはずのタイトル";
+        page.CancelTitleEditing();
+        Assert.False(page.IsEditingTitle);
+        Assert.Equal("メモ用テキスト", page.Title);
+    }
+
+    [Fact]
+    public void SetFirstLineAsTitle_SetsCorrectTitle()
+    {
+        var page = _vm.SelectedPage!;
+        page.Content = "\r\n  \r\n議事録：2026年プロジェクト定例会議\r\n本日のアジェンダ...";
+
+        _vm.SetFirstLineAsTitle(page);
+
+        Assert.Equal("議事録：2026年プロジェクト定例会議", page.Title);
+    }
+
+    [Fact]
+    public void ReorderPages_ChangesPositionCorrectly()
+    {
+        _vm.AddNewPage(); // ページ 2
+        _vm.AddNewPage(); // ページ 3
+        Assert.Equal(3, _vm.Pages.Count);
+
+        var p1 = _vm.Pages[0];
+        var p2 = _vm.Pages[1];
+        var p3 = _vm.Pages[2];
+
+        // 0番目を2番目に移動 (p1を最後へ)
+        _vm.ReorderPages(0, 2);
+
+        Assert.Equal(p2, _vm.Pages[0]);
+        Assert.Equal(p3, _vm.Pages[1]);
+        Assert.Equal(p1, _vm.Pages[2]);
+        Assert.True(_vm.IsDocumentModified);
     }
 }

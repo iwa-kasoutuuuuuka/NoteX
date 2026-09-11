@@ -17,6 +17,43 @@ public class PageViewModel : ViewModelBase
     private DateTime _modifiedAt = DateTime.Now;
     private int _caretIndex = 0;
     private double _verticalOffset = 0.0;
+    private bool _isEditingTitle;
+    private string _editingTitleText = string.Empty;
+
+    public bool IsEditingTitle
+    {
+        get => _isEditingTitle;
+        set => SetProperty(ref _isEditingTitle, value);
+    }
+
+    public string EditingTitleText
+    {
+        get => _editingTitleText;
+        set => SetProperty(ref _editingTitleText, value);
+    }
+
+    public void StartTitleEditing()
+    {
+        EditingTitleText = Title;
+        IsEditingTitle = true;
+    }
+
+    public void CommitTitleEditing()
+    {
+        if (!IsEditingTitle) return;
+        string trimmed = EditingTitleText.Trim();
+        if (!string.IsNullOrEmpty(trimmed) && trimmed != Title)
+        {
+            Title = trimmed;
+        }
+        IsEditingTitle = false;
+    }
+
+    public void CancelTitleEditing()
+    {
+        EditingTitleText = Title;
+        IsEditingTitle = false;
+    }
 
     public int CaretIndex
     {

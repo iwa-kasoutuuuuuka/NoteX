@@ -13,6 +13,8 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private ScrollViewer? _editorScrollViewer;
     private PageViewModel? _previousSelectedPage;
+    private Point _dragStartPoint;
+    private bool _isDraggingTab;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -185,7 +187,7 @@ public partial class MainWindow : Window
         }
         else if (e.Key == Key.F2 && _viewModel.SelectedPage != null)
         {
-            _viewModel.RenamePage(_viewModel.SelectedPage);
+            _viewModel.StartRenamePage(_viewModel.SelectedPage);
             e.Handled = true;
         }
     }
@@ -324,9 +326,16 @@ public partial class MainWindow : Window
         }
     }
 
-    // ドラッグ＆ドロップ
+    // ドラッグ＆ドロップ (ウィンドウレベル)
     private void Window_PreviewDragOver(object sender, DragEventArgs e)
     {
+        if (e.Data.GetDataPresent("NoteXPageTab"))
+        {
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+            return;
+        }
+
         if (e.Data.GetDataPresent(DataFormats.FileDrop))
         {
             e.Effects = DragDropEffects.Copy;
@@ -351,13 +360,123 @@ public partial class MainWindow : Window
         }
     }
 
+    // タブ並べ替えドラッグ＆ドロップ
+    private void Tab_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingTab = false;
+        // 閉じるボタンやTextBox上のクリックならドラッグ開始判定を行わない
+        if (e.OriginalSource is DependencyObject dep)
+        {
+            if (FindVisualParent<Button>(dep) != null || FindVisualParent<TextBox>(dep) != null)
+            {
+                return;
+            }
+        }
+        _dragStartPoint = e.GetPosition(null);
+        _isDraggingTab = true;
+    }
+
+    private void Tab_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingTab || e.LeftButton != MouseButtonState.Pressed)
+        {
+            _isDraggingTab = false;
+            return;
+        }
+
+        Point currentPoint = e.GetPosition(null);
+        Vector diff = _dragStartPoint - currentPoint;
+
+        if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+            Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+        {
+            _isDraggingTab = false;
+            if (sender is FrameworkElement element && element.DataContext is PageViewModel draggedPage)
+            {
+                var data = new DataObject("NoteXPageTab", draggedPage);
+                DragDrop.DoDragDrop(element, data, DragDropEffects.Move);
+            }
+        }
+    }
+
+    private void Tab_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("NoteXPageTab"))
+        {
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+    }
+
+    private void Tab_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("NoteXPageTab"))
+        {
+            var sourcePage = e.Data.GetData("NoteXPageTab") as PageViewModel;
+            if (sourcePage != null && sender is FrameworkElement element && element.DataContext is PageViewModel targetPage)
+            {
+                int oldIndex = _viewModel.Pages.IndexOf(sourcePage);
+                int newIndex = _viewModel.Pages.IndexOf(targetPage);
+                if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex)
+                {
+                    _viewModel.ReorderPages(oldIndex, newIndex);
+                }
+            }
+            e.Handled = true;
+        }
+    }
+
     // タブのダブルクリックで名前変更
     private void TabTitle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 2 && sender is FrameworkElement element && element.DataContext is PageViewModel page)
         {
-            _viewModel.RenamePage(page);
+            _viewModel.StartRenamePage(page);
             e.Handled = true;
+        }
+    }
+
+    // タブ名インライン編集 TextBox ハンドラ
+    private void TabTitleTextBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            textBox.Focus();
+            textBox.SelectAll();
+        }
+    }
+
+    private void TabTitleTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is TextBox textBox && textBox.DataContext is PageViewModel page)
+        {
+            if (e.Key == Key.Enter && e.ImeProcessedKey == Key.None)
+            {
+                page.CommitTitleEditing();
+                MainEditorTextBox.Focus();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                page.CancelTitleEditing();
+                MainEditorTextBox.Focus();
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void TabTitleTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox textBox && textBox.DataContext is PageViewModel page)
+        {
+            if (page.IsEditingTitle)
+            {
+                page.CommitTitleEditing();
+            }
         }
     }
 
@@ -399,5 +518,13 @@ public partial class MainWindow : Window
             if (descendant != null) return descendant;
         }
         return null;
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+    {
+        DependencyObject? parentObject = VisualTreeHelper.GetParent(child);
+        if (parentObject == null) return null;
+        if (parentObject is T parent) return parent;
+        return FindVisualParent<T>(parentObject);
     }
 }

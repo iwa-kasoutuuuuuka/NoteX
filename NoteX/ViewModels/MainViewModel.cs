@@ -163,6 +163,8 @@ public class MainViewModel : ViewModelBase
     public RelayCommand<PageViewModel> MovePageLeftCommand { get; }
     public RelayCommand<PageViewModel> MovePageRightCommand { get; }
     public RelayCommand<PageViewModel> RenamePageCommand { get; }
+    public RelayCommand<PageViewModel> StartRenamePageCommand { get; }
+    public RelayCommand<PageViewModel> SetFirstLineAsTitleCommand { get; }
 
     public RelayCommand NextPageCommand { get; }
     public RelayCommand PreviousPageCommand { get; }
@@ -214,6 +216,8 @@ public class MainViewModel : ViewModelBase
         MovePageLeftCommand = new RelayCommand<PageViewModel>(MovePageLeft, p => p != null && Pages.IndexOf(p) > 0);
         MovePageRightCommand = new RelayCommand<PageViewModel>(MovePageRight, p => p != null && Pages.IndexOf(p) < Pages.Count - 1);
         RenamePageCommand = new RelayCommand<PageViewModel>(RenamePage, p => p != null);
+        StartRenamePageCommand = new RelayCommand<PageViewModel>(StartRenamePage, p => p != null);
+        SetFirstLineAsTitleCommand = new RelayCommand<PageViewModel>(SetFirstLineAsTitle, p => p != null && !string.IsNullOrWhiteSpace(p.Content));
 
         NextPageCommand = new RelayCommand(NextPage, () => Pages.Count > 1);
         PreviousPageCommand = new RelayCommand(PreviousPage, () => Pages.Count > 1);
@@ -658,16 +662,83 @@ public class MainViewModel : ViewModelBase
         return (line, col);
     }
 
+    public void StartRenamePage(PageViewModel? page)
+    {
+        page ??= SelectedPage;
+        if (page == null) return;
+
+        foreach (var p in Pages)
+        {
+            if (p != page && p.IsEditingTitle)
+            {
+                p.CommitTitleEditing();
+            }
+        }
+        page.StartTitleEditing();
+    }
+
     public void RenamePage(PageViewModel? page)
     {
         page ??= SelectedPage;
         if (page == null) return;
 
+        // インライン編集を優先して開始
+        StartRenamePage(page);
+    }
+
+    public void RenamePageViaDialog(PageViewModel? page)
+    {
+        page ??= SelectedPage;
+        if (page == null) return;
+
         string? newTitle = _dialogService.ShowInputPrompt("ページ名の変更", "新しいページ名を入力してください:", page.Title);
-        if (!string.IsNullOrWhiteSpace(newTitle))
+        if (!string.IsNullOrWhiteSpace(newTitle) && newTitle != page.Title)
         {
             page.Title = newTitle.Trim();
+            _isStructureModified = true;
+            UpdateWindowTitle();
         }
+    }
+
+    public void SetFirstLineAsTitle(PageViewModel? page)
+    {
+        page ??= SelectedPage;
+        if (page == null) return;
+
+        string content = page.Content ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(content)) return;
+
+        using var reader = new StringReader(content);
+        string? line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            string trimmed = line.Trim();
+            if (!string.IsNullOrEmpty(trimmed))
+            {
+                if (trimmed.Length > 40)
+                {
+                    trimmed = trimmed.Substring(0, 40) + "...";
+                }
+                page.Title = trimmed;
+                _isStructureModified = true;
+                UpdateWindowTitle();
+                break;
+            }
+        }
+    }
+
+    public void ReorderPages(int oldIndex, int newIndex)
+    {
+        if (oldIndex < 0 || oldIndex >= Pages.Count || newIndex < 0 || newIndex >= Pages.Count || oldIndex == newIndex)
+            return;
+
+        var currentSelected = SelectedPage;
+        Pages.Move(oldIndex, newIndex);
+        SelectedPage = currentSelected;
+
+        _isStructureModified = true;
+        UpdatePageCountText();
+        UpdateWindowTitle();
     }
 
     // txt変換機能
