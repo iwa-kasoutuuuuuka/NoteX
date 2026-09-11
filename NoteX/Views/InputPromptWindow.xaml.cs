@@ -33,7 +33,7 @@ public partial class InputPromptWindow : Window
     {
         if (e.Key == Key.ImeProcessed) return;
 
-        if (e.Key == Key.Enter)
+        if (e.Key == Key.Enter && e.ImeProcessedKey == Key.None)
         {
             DialogResult = true;
             Close();

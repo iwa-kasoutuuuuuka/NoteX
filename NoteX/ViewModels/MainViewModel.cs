@@ -22,6 +22,7 @@ public class MainViewModel : ViewModelBase
     private bool _matchCase;
     private Action<string, bool, bool>? _findHandler; // text, matchCase, searchDown
     private Action<string, string, bool, bool>? _replaceHandler; // find, replace, matchCase, replaceAll
+    private Timer? _zoomSaveTimer;
 
     public ObservableCollection<PageViewModel> Pages { get; } = new();
 
@@ -60,6 +61,8 @@ public class MainViewModel : ViewModelBase
         get => _selectedPage;
         set
         {
+            if (ReferenceEquals(_selectedPage, value)) return;
+
             if (_selectedPage != null)
             {
                 _selectedPage.PropertyChanged -= OnPagePropertyChanged;
@@ -86,7 +89,7 @@ public class MainViewModel : ViewModelBase
         private set => SetProperty(ref _windowTitle, value);
     }
 
-    public bool IsDocumentModified => _isStructureModified || Pages.Any(p => p.IsModified) || (string.IsNullOrEmpty(CurrentFilePath) && Pages.Any(p => !string.IsNullOrEmpty(p.Content)));
+    public bool IsDocumentModified => _isStructureModified || Pages.Any(p => p.IsModified);
 
     private string _pageCountText = "ページ 1 / 1";
     public string PageCountText
@@ -588,44 +591,51 @@ public class MainViewModel : ViewModelBase
     {
         if (files == null || files.Length == 0) return;
 
-        // .txtx ファイルがある場合はそれを開く
-        string? txtxFile = files.FirstOrDefault(f => Path.GetExtension(f).Equals(".txtx", StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrEmpty(txtxFile))
+        try
         {
-            if (!ConfirmSaveIfModified()) return;
-            LoadDocumentFromPath(txtxFile);
-            return;
+            // .txtx ファイルがある場合はそれを開く
+            string? txtxFile = files.FirstOrDefault(f => Path.GetExtension(f).Equals(".txtx", StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrEmpty(txtxFile))
+            {
+                if (!ConfirmSaveIfModified()) return;
+                LoadDocumentFromPath(txtxFile);
+                return;
+            }
+
+            // テキストファイルを抽出
+            var txtFiles = files.Where(f =>
+            {
+                string ext = Path.GetExtension(f).ToLowerInvariant();
+                return ext is ".txt" or ".log" or ".csv" or ".md" or ".json" or ".xaml" or ".cs" or ".xml";
+            }).ToArray();
+
+            if (txtFiles.Length > 0)
+            {
+                var imported = _conversionService.ImportFiles(txtFiles);
+                if (imported.Count == 0) return;
+
+                bool replaceFirstEmpty = Pages.Count == 1 && string.IsNullOrEmpty(Pages[0].Content) && Pages[0].Title == "ページ 1";
+                if (replaceFirstEmpty)
+                {
+                    Pages.Clear();
+                }
+
+                foreach (var page in imported)
+                {
+                    var vm = PageViewModel.FromModel(page);
+                    vm.IsModified = true;
+                    Pages.Add(vm);
+                }
+
+                SelectedPage = Pages.LastOrDefault();
+                _isStructureModified = true;
+                UpdatePageCountText();
+                UpdateWindowTitle();
+            }
         }
-
-        // テキストファイルを抽出
-        var txtFiles = files.Where(f =>
+        catch (Exception ex)
         {
-            string ext = Path.GetExtension(f).ToLowerInvariant();
-            return ext is ".txt" or ".log" or ".csv" or ".md" or ".json" or ".xaml" or ".cs" or ".xml";
-        }).ToArray();
-
-        if (txtFiles.Length > 0)
-        {
-            var imported = _conversionService.ImportFiles(txtFiles);
-            if (imported.Count == 0) return;
-
-            bool replaceFirstEmpty = Pages.Count == 1 && string.IsNullOrEmpty(Pages[0].Content) && Pages[0].Title == "ページ 1";
-            if (replaceFirstEmpty)
-            {
-                Pages.Clear();
-            }
-
-            foreach (var page in imported)
-            {
-                var vm = PageViewModel.FromModel(page);
-                vm.IsModified = true;
-                Pages.Add(vm);
-            }
-
-            SelectedPage = Pages.LastOrDefault();
-            _isStructureModified = true;
-            UpdatePageCountText();
-            UpdateWindowTitle();
+            _dialogService.ShowError($"ファイルの取り込み中にエラーが発生しました:\n{ex.Message}");
         }
     }
 
@@ -821,28 +831,35 @@ public class MainViewModel : ViewModelBase
         );
         if (files == null || files.Length == 0) return;
 
-        var imported = _conversionService.ImportFiles(files);
-        if (imported.Count == 0) return;
-
-        // 現在のページが空の1ページのみの場合、それを置き換えるか確認
-        bool replaceFirstEmpty = Pages.Count == 1 && string.IsNullOrEmpty(Pages[0].Content) && Pages[0].Title == "ページ 1";
-        if (replaceFirstEmpty)
+        try
         {
-            Pages.Clear();
-        }
+            var imported = _conversionService.ImportFiles(files);
+            if (imported.Count == 0) return;
 
-        foreach (var page in imported)
+            // 現在のページが空の1ページのみの場合、それを置き換えるか確認
+            bool replaceFirstEmpty = Pages.Count == 1 && string.IsNullOrEmpty(Pages[0].Content) && Pages[0].Title == "ページ 1";
+            if (replaceFirstEmpty)
+            {
+                Pages.Clear();
+            }
+
+            foreach (var page in imported)
+            {
+                var vm = PageViewModel.FromModel(page);
+                vm.IsModified = true;
+                Pages.Add(vm);
+            }
+
+            SelectedPage = Pages.LastOrDefault();
+            _isStructureModified = true;
+            UpdatePageCountText();
+            UpdateWindowTitle();
+            _dialogService.ShowMessage($"{imported.Count} 個のテキストファイルを新しいページとして取り込みました。", "インポート完了");
+        }
+        catch (Exception ex)
         {
-            var vm = PageViewModel.FromModel(page);
-            vm.IsModified = true;
-            Pages.Add(vm);
+            _dialogService.ShowError($"インポート中にエラーが発生しました:\n{ex.Message}");
         }
-
-        SelectedPage = Pages.LastOrDefault();
-        _isStructureModified = true;
-        UpdatePageCountText();
-        UpdateWindowTitle();
-        _dialogService.ShowMessage($"{imported.Count} 個のテキストファイルを新しいページとして取り込みました。", "インポート完了");
     }
 
     public void ImportTxtDirectory()
@@ -850,31 +867,38 @@ public class MainViewModel : ViewModelBase
         string? folder = _dialogService.ShowFolderBrowserDialog("テキストファイルを取り込むフォルダを選択");
         if (string.IsNullOrEmpty(folder)) return;
 
-        var imported = _conversionService.ImportDirectory(folder);
-        if (imported.Count == 0)
+        try
         {
-            _dialogService.ShowMessage("選択したフォルダに .txt ファイルが見つかりませんでした。", "インポート");
-            return;
-        }
+            var imported = _conversionService.ImportDirectory(folder);
+            if (imported.Count == 0)
+            {
+                _dialogService.ShowMessage("選択したフォルダに .txt ファイルが見つかりませんでした。", "インポート");
+                return;
+            }
 
-        bool replaceFirstEmpty = Pages.Count == 1 && string.IsNullOrEmpty(Pages[0].Content) && Pages[0].Title == "ページ 1";
-        if (replaceFirstEmpty)
+            bool replaceFirstEmpty = Pages.Count == 1 && string.IsNullOrEmpty(Pages[0].Content) && Pages[0].Title == "ページ 1";
+            if (replaceFirstEmpty)
+            {
+                Pages.Clear();
+            }
+
+            foreach (var page in imported)
+            {
+                var vm = PageViewModel.FromModel(page);
+                vm.IsModified = true;
+                Pages.Add(vm);
+            }
+
+            SelectedPage = Pages.LastOrDefault();
+            _isStructureModified = true;
+            UpdatePageCountText();
+            UpdateWindowTitle();
+            _dialogService.ShowMessage($"{imported.Count} 個のテキストファイルを取り込みました。", "インポート完了");
+        }
+        catch (Exception ex)
         {
-            Pages.Clear();
+            _dialogService.ShowError($"フォルダ取り込み中にエラーが発生しました:\n{ex.Message}");
         }
-
-        foreach (var page in imported)
-        {
-            var vm = PageViewModel.FromModel(page);
-            vm.IsModified = true;
-            Pages.Add(vm);
-        }
-
-        SelectedPage = Pages.LastOrDefault();
-        _isStructureModified = true;
-        UpdatePageCountText();
-        UpdateWindowTitle();
-        _dialogService.ShowMessage($"{imported.Count} 個のテキストファイルを取り込みました。", "インポート完了");
     }
 
     // 表示設定
@@ -894,12 +918,21 @@ public class MainViewModel : ViewModelBase
 
     private void ToggleLineNumbers() => ToggleLineNumbersCommandExecute();
 
+    private void RequestDebouncedSettingsSave()
+    {
+        _zoomSaveTimer?.Dispose();
+        _zoomSaveTimer = new Timer(_ =>
+        {
+            _settingsService.SaveSettings(Settings);
+        }, null, 500, Timeout.Infinite);
+    }
+
     public void ZoomIn()
     {
         if (Settings.ZoomLevel < 500)
         {
             Settings.ZoomLevel = Math.Min(500, Settings.ZoomLevel + 10);
-            _settingsService.SaveSettings(Settings);
+            RequestDebouncedSettingsSave();
             OnPropertyChanged(nameof(Settings));
             OnPropertyChanged(nameof(StatusZoomText));
         }
@@ -910,7 +943,7 @@ public class MainViewModel : ViewModelBase
         if (Settings.ZoomLevel > 20)
         {
             Settings.ZoomLevel = Math.Max(20, Settings.ZoomLevel - 10);
-            _settingsService.SaveSettings(Settings);
+            RequestDebouncedSettingsSave();
             OnPropertyChanged(nameof(Settings));
             OnPropertyChanged(nameof(StatusZoomText));
         }
@@ -919,6 +952,7 @@ public class MainViewModel : ViewModelBase
     public void ResetZoom()
     {
         Settings.ZoomLevel = 100.0;
+        _zoomSaveTimer?.Dispose();
         _settingsService.SaveSettings(Settings);
         OnPropertyChanged(nameof(Settings));
         OnPropertyChanged(nameof(StatusZoomText));

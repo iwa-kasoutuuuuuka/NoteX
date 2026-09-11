@@ -225,17 +225,24 @@ public class TextConversionService
         {
             if (!File.Exists(path)) continue;
 
-            string title = Path.GetFileNameWithoutExtension(path);
-            var (content, encoding) = DetectAndReadAllText(path);
-
-            importedPages.Add(new NoteXPage
+            try
             {
-                Title = title,
-                Content = content,
-                Encoding = encoding.WebName,
-                CreatedAt = File.GetCreationTime(path),
-                ModifiedAt = File.GetLastWriteTime(path)
-            });
+                string title = Path.GetFileNameWithoutExtension(path);
+                var (content, encoding) = DetectAndReadAllText(path);
+
+                importedPages.Add(new NoteXPage
+                {
+                    Title = title,
+                    Content = content,
+                    Encoding = encoding.WebName,
+                    CreatedAt = File.GetCreationTime(path),
+                    ModifiedAt = File.GetLastWriteTime(path)
+                });
+            }
+            catch
+            {
+                // 個別ファイルの読み込み失敗（排他ロック、アクセス権、サイズ超過等）は安全にスキップ
+            }
         }
 
         return importedPages;
@@ -270,7 +277,7 @@ public class TextConversionService
     public const long MaxImportFileSize = 50 * 1024 * 1024; // 50MB
 
     /// <summary>
-    /// ファイルのエンコーディング（UTF-8, UTF-8 BOM, Shift_JIS）を自動判別してテキスト読込
+    /// ファイルのエンコーディング（UTF-8, UTF-8 BOM, UTF-16 LE/BE, Shift_JIS）を自動判別してテキスト読込
     /// </summary>
     public static (string Content, Encoding Encoding) DetectAndReadAllText(string filePath)
     {
@@ -294,6 +301,10 @@ public class TextConversionService
         if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
         {
             return (Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2), Encoding.Unicode);
+        }
+        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+        {
+            return (Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2), Encoding.BigEndianUnicode);
         }
 
         // UTF-8 チェック

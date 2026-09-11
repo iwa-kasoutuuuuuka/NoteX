@@ -236,6 +236,39 @@ public class ViewModelTests
     }
 
     [Fact]
+    public void SelectedPage_Reassignment_PreservesPropertyChangedSubscription()
+    {
+        // BUG-01 再現防止テスト: SelectedPage に同じインスタンスを再代入しても PropertyChanged が外れないこと
+        var page = _vm.SelectedPage;
+        Assert.NotNull(page);
+
+        // 同じインスタンスを明示的に再代入
+        _vm.SelectedPage = page;
+
+        // Contentを変更してステータスバー情報が更新されることを確認
+        page.Content = "テスト変更後の文字列"; // 10文字
+        Assert.Contains("10 文字", _vm.StatusStatsText);
+    }
+
+    [Fact]
+    public void ExternalTxt_StartupImport_DoesNotMarkDocumentAsModifiedInitially()
+    {
+        // BUG-02 再現防止テスト: 外部ファイル読み込み時は未保存フラグ（*）が立たないこと
+        _vm.Pages.Clear();
+        var page = PageViewModel.FromModel(new NoteX.Models.NoteXPage
+        {
+            Title = "テストファイル",
+            Content = "初期テキスト"
+        });
+        _vm.Pages.Add(page);
+        _vm.SelectedPage = page;
+        _vm.UpdateWindowTitle();
+
+        Assert.False(_vm.IsDocumentModified, "外部ファイルオープン直後は未変更状態であるべき");
+        Assert.DoesNotContain("*", _vm.WindowTitle);
+    }
+
+    [Fact]
     public void DynamicNewLineStatus_DetectsCorrectLineEnding()
     {
         _vm.SelectedPage!.Content = "Hello\r\nWorld";

@@ -41,7 +41,9 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="フォントサイズ:" VerticalAlignment="Center" Width="120"/>
-                            <ComboBox x:Name="FontSizeComboBox" Width="100" Height="28" SelectionChanged="FontSizeComboBox_SelectionChanged">
+                            <ComboBox x:Name="FontSizeComboBox" Width="100" Height="28" IsEditable="True"
+                                      SelectionChanged="FontSizeComboBox_SelectionChanged"
+                                      LostFocus="FontSizeComboBox_LostFocus">
                                 <ComboBoxItem Content="10"/>
                                 <ComboBoxItem Content="11"/>
                                 <ComboBoxItem Content="12"/>

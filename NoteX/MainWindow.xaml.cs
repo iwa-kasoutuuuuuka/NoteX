@@ -15,6 +15,7 @@ public partial class MainWindow : Window
     private PageViewModel? _previousSelectedPage;
     private Point _dragStartPoint;
     private bool _isDraggingTab;
+    private System.Windows.Threading.DispatcherTimer? _lineNumberDebounceTimer;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -24,6 +25,16 @@ public partial class MainWindow : Window
 
         _previousSelectedPage = _viewModel.SelectedPage;
         _viewModel.RegisterFindReplaceHandlers(ExecuteFind, ExecuteReplace);
+
+        _lineNumberDebounceTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(100)
+        };
+        _lineNumberDebounceTimer.Tick += (_, _) =>
+        {
+            _lineNumberDebounceTimer.Stop();
+            UpdateLineNumbers();
+        };
 
         Loaded += MainWindow_Loaded;
         Unloaded += MainWindow_Unloaded;
@@ -71,7 +82,17 @@ public partial class MainWindow : Window
 
     private void MainEditorTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        UpdateLineNumbers();
+        if (!_viewModel.Settings.WordWrap)
+        {
+            // 折り返しなしの場合は即時高速計算可能
+            UpdateLineNumbers();
+        }
+        else
+        {
+            // 折り返しありの場合はタイピング負荷軽減のためデバウンス
+            _lineNumberDebounceTimer?.Stop();
+            _lineNumberDebounceTimer?.Start();
+        }
     }
 
     private void UpdateLineNumbers()
@@ -79,8 +100,20 @@ public partial class MainWindow : Window
         int lineCount = MainEditorTextBox.LineCount;
         if (lineCount < 1) lineCount = 1;
 
-        string text = MainEditorTextBox.Text;
         var sb = new StringBuilder();
+
+        if (!_viewModel.Settings.WordWrap)
+        {
+            // 折り返しなし: 物理行 = 論理行 なので 0ms で超高速出力
+            for (int i = 1; i <= lineCount; i++)
+            {
+                sb.AppendLine(i.ToString());
+            }
+            LineNumberTextBlock.Text = sb.ToString();
+            return;
+        }
+
+        string text = MainEditorTextBox.Text;
         int logicalLine = 1;
 
         for (int i = 0; i < lineCount; i++)
@@ -340,11 +373,10 @@ public partial class MainWindow : Window
         {
             e.Effects = DragDropEffects.Copy;
             e.Handled = true;
+            return;
         }
-        else
-        {
-            e.Effects = DragDropEffects.None;
-        }
+
+        // ファイルやタブ以外（エディタ内テキストのドラッグ等）はブロックせず、TextBox等のネイティブ処理にパススルー
     }
 
     private void Window_Drop(object sender, DragEventArgs e)

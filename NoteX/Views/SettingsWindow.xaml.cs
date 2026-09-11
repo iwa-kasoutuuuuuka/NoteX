@@ -111,7 +111,25 @@ public partial class SettingsWindow : Window
         if (!_initialized) return;
 
         if (FontSizeComboBox.SelectedItem is ComboBoxItem item &&
-            double.TryParse(item.Content.ToString(), out double size))
+            double.TryParse(item.Content?.ToString(), out double size))
+        {
+            ApplyFontSize(size);
+        }
+    }
+
+    private void FontSizeComboBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+
+        if (double.TryParse(FontSizeComboBox.Text.Trim(), out double size) && size >= 6 && size <= 120)
+        {
+            ApplyFontSize(size);
+        }
+    }
+
+    private void ApplyFontSize(double size)
+    {
+        if (size >= 6 && size <= 120 && Math.Abs(_settings.FontSize - size) > 0.1)
         {
             _settings.FontSize = size;
             _settingsService.SaveSettings(_settings);

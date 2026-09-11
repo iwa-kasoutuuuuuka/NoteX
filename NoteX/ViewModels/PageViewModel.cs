@@ -127,7 +127,13 @@ public class PageViewModel : ViewModelBase
     public int CharCount
     {
         get => _charCount;
-        set => SetProperty(ref _charCount, value);
+        set
+        {
+            if (SetProperty(ref _charCount, value))
+            {
+                OnPropertyChanged(nameof(StatsText));
+            }
+        }
     }
 
     public int SelectedCharCount

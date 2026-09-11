@@ -135,4 +135,43 @@ public class FileAndConversionTests : IDisposable
         Assert.Equal("メモ_2026", pages[1].Title);
         Assert.Equal("重要な会議メモ", pages[1].Content);
     }
+
+    [Fact]
+    public void ImportFiles_DecodesUtf16BigEndianProperly()
+    {
+        // Arrange
+        var conversionService = new TextConversionService();
+        string fileBe = Path.Combine(_testDir, "utf16be.txt");
+        // UTF-16 Big Endian with BOM (0xFE, 0xFF)
+        File.WriteAllText(fileBe, "こんにちはUTF16BE", Encoding.BigEndianUnicode);
+
+        // Act
+        var pages = conversionService.ImportFiles(new[] { fileBe });
+
+        // Assert
+        Assert.Single(pages);
+        Assert.Equal("こんにちはUTF16BE", pages[0].Content);
+    }
+
+    [Fact]
+    public void ImportFiles_SkipsLockedFileGracefully()
+    {
+        // Arrange
+        var conversionService = new TextConversionService();
+        string lockedFile = Path.Combine(_testDir, "locked.txt");
+        string normalFile = Path.Combine(_testDir, "normal.txt");
+        File.WriteAllText(lockedFile, "ロックファイル");
+        File.WriteAllText(normalFile, "通常ファイル");
+
+        // Lock the file exclusively
+        using (var fs = new FileStream(lockedFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            // Act
+            var pages = conversionService.ImportFiles(new[] { lockedFile, normalFile });
+
+            // Assert: ロックされたファイルは安全にスキップされ、正常なファイルのみインポートされること
+            Assert.Single(pages);
+            Assert.Equal("通常ファイル", pages[0].Content);
+        }
+    }
 }

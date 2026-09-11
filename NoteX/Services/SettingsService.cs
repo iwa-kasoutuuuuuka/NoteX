@@ -6,7 +6,8 @@ namespace NoteX.Services;
 
 public class SettingsService
 {
-    private readonly string _settingsFilePath;
+    private string _settingsFilePath;
+    private readonly bool _isCustomPath;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -18,6 +19,7 @@ public class SettingsService
         if (!string.IsNullOrEmpty(customSettingsPath))
         {
             _settingsFilePath = customSettingsPath;
+            _isCustomPath = true;
             return;
         }
 
@@ -40,6 +42,16 @@ public class SettingsService
         }
     }
 
+    public static string GetSafeAppDataDirectory()
+    {
+        string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NoteX");
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+        return dir;
+    }
+
     public AppSettings LoadSettings()
     {
         try
@@ -49,6 +61,25 @@ public class SettingsService
                 string json = File.ReadAllText(_settingsFilePath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
                 if (settings != null) return settings;
+            }
+            else if (!_isCustomPath)
+            {
+                // AppData側のフォールバックも確認
+                string appDataFile = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "NoteX",
+                    "settings.json"
+                );
+                if (File.Exists(appDataFile))
+                {
+                    string json = File.ReadAllText(appDataFile);
+                    var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
+                    if (settings != null)
+                    {
+                        _settingsFilePath = appDataFile;
+                        return settings;
+                    }
+                }
             }
         }
         catch
@@ -71,6 +102,21 @@ public class SettingsService
 
             string json = JsonSerializer.Serialize(settings, JsonOptions);
             File.WriteAllText(_settingsFilePath, json);
+        }
+        catch (UnauthorizedAccessException) when (!_isCustomPath)
+        {
+            // 書き込み権限がない場合（Program Files配置時等）、%APPDATA%\NoteX\settings.json にフォールバック
+            try
+            {
+                string appDataDir = GetSafeAppDataDirectory();
+                _settingsFilePath = Path.Combine(appDataDir, "settings.json");
+                string json = JsonSerializer.Serialize(settings, JsonOptions);
+                File.WriteAllText(_settingsFilePath, json);
+            }
+            catch
+            {
+                // フォールバック失敗時はアプリ中断させない
+            }
         }
         catch
         {
